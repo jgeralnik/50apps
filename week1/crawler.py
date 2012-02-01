@@ -5,11 +5,13 @@ import requests
 from Queue import Queue
 from termcolor import colored
 import argparse
+import threading
 
 def crawl(url, depth, search):
   visited = set()
   to_visit = Queue()
   result = set()
+
   def visit(url, depth):
     if url in visited:
       return
@@ -33,6 +35,9 @@ def crawl(url, depth, search):
     except ValueError:
       print "ValueError on", url
       return    #Content is not html
+    except LookupError:
+      print "LookupError on", url
+      return  #Content is in some unknown encoding
       
     except TypeError:
       print "TypeError on", url 
@@ -50,12 +55,20 @@ def crawl(url, depth, search):
       if attr == "href":
         to_visit.put((link, depth-1))
 
+  def work():
+    while True:
+      url, depth = to_visit.get()
+      visit(url, depth)
+      to_visit.task_done()
+      print "visited " + url
+
+  for i in xrange(20):
+    t = threading.Thread(target=work)
+    t.daemon = True
+    t.start()
 
   to_visit.put((url, depth))
-  while not to_visit.empty():
-    url, depth = to_visit.get()
-    visit(url, depth)
-    print "visited " + url
+  to_visit.join()
   return result
 
 if __name__ == "__main__":

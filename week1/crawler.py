@@ -2,20 +2,18 @@ import sys
 from lxml.html.clean import clean_html
 from lxml.html.soupparser import fromstring
 import requests
-from Queue import Queue
+from Queue import Queue, Empty
 from termcolor import colored
 import argparse
 import threading
 
 def crawl(url, depth, search):
-  visited = set()
+  seen = set()
   to_visit = Queue()
   result = set()
+  lock = threading.Lock()
 
   def visit(url, depth):
-    if url in visited:
-      return
-    visited.add(url)
 
     try:
       r = requests.get(url)
@@ -52,15 +50,25 @@ def crawl(url, depth, search):
 
     html.make_links_absolute(url)
     for element, attr, link, pos in html.iterlinks():
-      if attr == "href":
-        to_visit.put((link, depth-1))
+      if attr == "href" and link not in seen:
+        lock.acquire()
+
+        if link not in seen:
+          seen.add(link)
+          lock.release()
+          to_visit.put((link, depth-1))
+        else:
+          lock.release()
 
   def work():
-    while True:
-      url, depth = to_visit.get()
-      visit(url, depth)
-      to_visit.task_done()
-      print "visited " + url
+    while to_visit.unfinished_tasks:
+      try:
+        url, depth = to_visit.get(timeout=1)
+        visit(url, depth)
+        to_visit.task_done()
+        print "visited " + url
+      except Empty:
+        pass
 
   for i in xrange(20):
     t = threading.Thread(target=work)

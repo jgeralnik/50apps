@@ -7,14 +7,14 @@ from termcolor import colored
 import argparse
 import threading
 
-def crawl(url, depth, search):
+def crawl(url, depth, search, result=Queue()):
+  """Crawls the web for given search term"""
   seen = set()
   to_visit = Queue()
-  result = set()
+  to_visit.put((url, depth))
   lock = threading.Lock()
 
   def visit(url, depth):
-
     try:
       r = requests.get(url)
     except ValueError:
@@ -43,7 +43,7 @@ def crawl(url, depth, search):
 
     html = clean_html(html)
     if search.lower() in html.text_content().lower():
-      result.add(url)
+      result.put(url)
 
     if depth==0:
       return
@@ -63,10 +63,9 @@ def crawl(url, depth, search):
   def work():
     while to_visit.unfinished_tasks:
       try:
-        url, depth = to_visit.get(timeout=1)
+        url, depth = to_visit.get(block=True, timeout=1)
         visit(url, depth)
         to_visit.task_done()
-        print "visited " + url
       except Empty:
         pass
 
@@ -75,9 +74,18 @@ def crawl(url, depth, search):
     t.daemon = True
     t.start()
 
-  to_visit.put((url, depth))
   to_visit.join()
+  result.put(None)
   return result
+
+
+def consume(results):
+  while True:
+    result = results.get()
+    if result == None:
+      return
+    print colored(result, 'red')
+    sys.stdout.flush()
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description="Crawl the web for search query")
@@ -85,5 +93,14 @@ if __name__ == "__main__":
   parser.add_argument('query', help='The string to search for')
   parser.add_argument('-d', '--depth', type=int, help='The depth to search', default=1)
   args = parser.parse_args()
-  for url in crawl(args.url,args.depth,args.query):
-    print colored(url, 'red')
+
+  results = Queue()
+  crawler = threading.Thread(target=crawl, args = (args.url, args.depth, args.query, results))
+  crawler.start()
+
+  consumer = threading.Thread(target=consume, args=(results,))
+  consumer.start()
+
+  crawler.join()
+  consumer.join()
+

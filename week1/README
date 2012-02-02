@@ -15,8 +15,8 @@ Output:
 the list of url that contains the specified text The Simple part is mandatory to be completed. If you finish the simple part and are eager to take up something challenging, then here's a little complex angle to the problem:
 
 Complex part: (Optional, if you complete simple part and want to take up something more challenging)
-Write rules around the app for searching.
-Rule 1: The return Url should contain a specific substring
-Rule 2: Highlight in output if the url is amongst a long list of blacklisted urls (about 10000 blacklisted urls)
-Rule 3: Search for multiple search strings and rank Urls as per the number of different search strings found and occurances of each search string in the page
-Rule 4: Rank as per level of the Url w.r.t. seed url 
+
+Note: I have decided to do something original for the complex part rather than follow the guide on 50apps. For the original complex part, see the 50apps website
+
+1) Multithreading
+2) Result can be passed as parameter to allow consumption before search is done
